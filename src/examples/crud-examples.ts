@@ -3,8 +3,6 @@
  * Execute o SQL em `supabase/schema.sql` antes de usar.
  */
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export async function exemploSelectAuditores(supabase: SupabaseClient) {

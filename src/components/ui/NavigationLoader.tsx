@@ -9,9 +9,19 @@ export function NavigationLoader() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    setVisible(true);
-    const t = window.setTimeout(() => setVisible(false), 380);
-    return () => window.clearTimeout(t);
+    let cancelled = false;
+    const t0 = window.setTimeout(() => {
+      if (!cancelled) setVisible(true);
+    }, 0);
+    const t1 = window.setTimeout(() => {
+      if (!cancelled) setVisible(false);
+    }, 380);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t0);
+      window.clearTimeout(t1);
+      setVisible(false);
+    };
   }, [pathname]);
 
   if (!visible) return null;

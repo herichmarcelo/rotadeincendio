@@ -45,3 +45,25 @@ O upload usa o preset **`rota_incendio_upload`** no cloud **`dmcgufpyk`**, sem A
 ## PWA
 
 `public/manifest.json` e metadados em `src/app/layout.tsx` deixam o app instalável; ajuste ícones em `public/icons/` se desejar.
+
+## Deploy na Vercel
+
+1. Conecte o repositório GitHub ao projeto na [Vercel](https://vercel.com).
+
+2. Em **Project → Settings → Environment Variables**, cadastre (para **Production** e, se quiser, **Preview**):
+
+   | Variável | Onde usar |
+   |----------|-----------|
+   | `NEXT_PUBLIC_SUPABASE_URL` | Build + runtime (obrigatório) |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Build + runtime (obrigatório) |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Só servidor — rotas `/api/admin/*` e provisionamento |
+   | `SUPABASE_BOOTSTRAP_SECRET` | Só servidor — `POST` de bootstrap/provision |
+   | `SUPER_ADMIN_EMAILS` | Só servidor — fallback de acesso admin |
+   | `SUPER_ADMIN_INITIAL_PASSWORD` | Só servidor — opcional, provision |
+   | `SUPER_ADMIN_NOME` | Só servidor — opcional, provision |
+
+   Sem **`NEXT_PUBLIC_SUPABASE_URL`** e **`NEXT_PUBLIC_SUPABASE_ANON_KEY`**, o `next build` costuma falhar com erro pedindo essas variáveis (o `createSupabaseServerClient` roda em páginas Server Components).
+
+3. **Redeploy** depois de salvar as variáveis.
+
+4. No Supabase, em **Authentication → URL Configuration**, inclua a URL do site Vercel em **Redirect URLs** e **Site URL** se o login falhar após o deploy.
