@@ -1,26 +1,47 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #09090b;
+  --foreground: #fafafa;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-fire-red: #b71c1c;
+  --color-fire-yellow: #ffc107;
+  --color-fire-dark: #121212;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+@keyframes ri-fade-slide {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-ri-enter {
+  animation: ri-fade-slide 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-ri-delay-1 {
+  animation-delay: 80ms;
+}
+.animate-ri-delay-2 {
+  animation-delay: 140ms;
+}
+.animate-ri-delay-3 {
+  animation-delay: 200ms;
 }
