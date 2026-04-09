@@ -45,11 +45,21 @@ create table if not exists public.auditorias (
   auditor_id uuid not null references public.auditores (id) on delete restrict,
   data_auditoria date not null,
   horario_abertura time,
+  aberta_em timestamptz,
+  concluida_em timestamptz,
+  parecer_atraso text,
+  parecer_atraso_em timestamptz,
+  parecer_atraso_auditor_id uuid references public.auditores (id) on delete set null,
   status text not null check (status in ('pendente', 'concluida', 'vencida')),
   created_at timestamptz not null default now()
 );
 
 alter table public.auditorias add column if not exists horario_abertura time;
+alter table public.auditorias add column if not exists concluida_em timestamptz;
+alter table public.auditorias add column if not exists aberta_em timestamptz;
+alter table public.auditorias add column if not exists parecer_atraso text;
+alter table public.auditorias add column if not exists parecer_atraso_em timestamptz;
+alter table public.auditorias add column if not exists parecer_atraso_auditor_id uuid;
 
 create index if not exists idx_auditorias_unidade on public.auditorias (unidade_id);
 create index if not exists idx_auditorias_setor on public.auditorias (setor_id);

@@ -35,6 +35,16 @@ export interface Auditoria {
   data_auditoria: string;
   /** Horário de abertura da auditoria (24h), ex.: "14:30:00" vindo do Postgres */
   horario_abertura?: string | null;
+  /** Timestamp (timestamptz) real de abertura da auditoria. */
+  aberta_em?: string | null;
+  /** Timestamp (timestamptz) de quando foi concluída. */
+  concluida_em?: string | null;
+  /** Parecer/justificativa caso passe do prazo (6h) e atrase. */
+  parecer_atraso?: string | null;
+  /** Timestamp (timestamptz) de quando o parecer foi registrado. */
+  parecer_atraso_em?: string | null;
+  /** Auditor que registrou o parecer. */
+  parecer_atraso_auditor_id?: string | null;
   status: AuditoriaStatus;
   created_at: string;
 }

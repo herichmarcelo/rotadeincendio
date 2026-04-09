@@ -19,6 +19,16 @@ export async function syncAuditoriaStatuses(supabase: SupabaseClient): Promise<v
     .update({ status: "vencida" as AuditoriaStatus })
     .eq("status", "pendente")
     .lt("data_auditoria", today);
+
+  // Regra de vencimento por tempo: 6h após `aberta_em`.
+  // (Se o projeto ainda não tiver a coluna, o PostgREST vai retornar erro; nesse caso,
+  // o fluxo principal continua funcionando com a regra por data.)
+  const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+  await supabase
+    .from("auditorias")
+    .update({ status: "vencida" as AuditoriaStatus })
+    .eq("status", "pendente")
+    .lt("aberta_em", sixHoursAgo);
 }
 
 export async function listAuditorias(
@@ -81,7 +91,20 @@ export async function updateAuditoria(
   supabase: SupabaseClient,
   id: string,
   patch: Partial<
-    Pick<Auditoria, "status" | "data_auditoria" | "horario_abertura" | "unidade_id" | "setor_id" | "auditor_id">
+    Pick<
+      Auditoria,
+      | "status"
+      | "data_auditoria"
+      | "horario_abertura"
+      | "aberta_em"
+      | "concluida_em"
+      | "parecer_atraso"
+      | "parecer_atraso_em"
+      | "parecer_atraso_auditor_id"
+      | "unidade_id"
+      | "setor_id"
+      | "auditor_id"
+    >
   >
 ) {
   const { data, error } = await supabase.from("auditorias").update(patch).eq("id", id).select().single();

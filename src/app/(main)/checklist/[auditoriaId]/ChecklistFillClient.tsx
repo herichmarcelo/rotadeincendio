@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import type { AuditoriaStatus, ChecklistItem, ChecklistResposta } from "@/types/database";
 import { updateAuditoria } from "@/services/auditorias";
+import { getAuditorForCurrentUser } from "@/services/auditores";
 import { listChecklistItens, listRespostasPorAuditoria, upsertResposta } from "@/services/checklist";
 import UploadFoto from "@/components/checklist/UploadFoto";
 import { Card } from "@/components/ui/Card";
@@ -147,9 +148,13 @@ function FotoThumb({
 export function ChecklistFillClient({
   auditoriaId,
   auditoriaStatus,
+  abertaEm,
+  parecerAtraso,
 }: {
   auditoriaId: string;
   auditoriaStatus: AuditoriaStatus;
+  abertaEm: string | null;
+  parecerAtraso: string | null;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -161,8 +166,18 @@ export function ChecklistFillClient({
   const [syncing, setSyncing] = useState(false);
   const [online, setOnline] = useState(true);
   const [pendingLocal, setPendingLocal] = useState(false);
+  const [parecerOpen, setParecerOpen] = useState(false);
+  const [parecerText, setParecerText] = useState(parecerAtraso ?? "");
+  const [meuAuditorId, setMeuAuditorId] = useState<string | null>(null);
 
   const readOnly = auditoriaStatus === "concluida";
+
+  const overdueBy6h = useMemo(() => {
+    if (!abertaEm) return false;
+    const opened = new Date(abertaEm);
+    if (Number.isNaN(opened.getTime())) return false;
+    return Date.now() > opened.getTime() + 6 * 60 * 60 * 1000;
+  }, [abertaEm]);
 
   useEffect(() => {
     const sync = () => {
@@ -176,6 +191,17 @@ export function ChecklistFillClient({
       window.removeEventListener("offline", sync);
     };
   }, []);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const a = await getAuditorForCurrentUser(supabase);
+        setMeuAuditorId(a?.id ?? null);
+      } catch {
+        setMeuAuditorId(null);
+      }
+    })();
+  }, [supabase]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -293,6 +319,11 @@ export function ChecklistFillClient({
 
   async function concluirAuditoria() {
     if (readOnly) return;
+    if (overdueBy6h && !parecerText.trim()) {
+      setParecerOpen(true);
+      toast.error("Auditoria atrasada: informe o parecer antes de concluir.");
+      return;
+    }
     setClosing(true);
     try {
       const respostas: Record<string, RespostaPayload> = {};
@@ -320,7 +351,14 @@ export function ChecklistFillClient({
           fotos: cur.fotos,
         });
       }
-      await updateAuditoria(supabase, auditoriaId, { status: "concluida" });
+      if (overdueBy6h && parecerText.trim()) {
+        await updateAuditoria(supabase, auditoriaId, {
+          parecer_atraso: parecerText.trim(),
+          parecer_atraso_em: new Date().toISOString(),
+          parecer_atraso_auditor_id: meuAuditorId ?? null,
+        });
+      }
+      await updateAuditoria(supabase, auditoriaId, { status: "concluida", concluida_em: new Date().toISOString() });
       clearDraft(auditoriaId);
       toast.success("Auditoria concluída e enviada.");
       router.push("/auditorias");
@@ -394,6 +432,51 @@ export function ChecklistFillClient({
           )}
         </div>
       </div>
+
+      {parecerOpen && !readOnly ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+            <div className="mb-3">
+              <p className="text-sm font-semibold text-white">Parecer sobre atraso</p>
+              <p className="mt-1 text-xs text-zinc-400">
+                Esta auditoria passou de 6 horas após a abertura. Informe a justificativa para concluir.
+              </p>
+            </div>
+            <label className="block text-sm">
+              <span className="text-zinc-500">Justificativa</span>
+              <textarea
+                value={parecerText}
+                onChange={(e) => setParecerText(e.target.value)}
+                rows={4}
+                className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
+                placeholder="Descreva o motivo do atraso…"
+              />
+            </label>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setParecerOpen(false)}
+                className="rounded-xl border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-900"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!parecerText.trim()) {
+                    toast.error("Informe o parecer sobre o atraso.");
+                    return;
+                  }
+                  setParecerOpen(false);
+                }}
+                className="rounded-xl bg-fire-yellow px-4 py-2 text-sm font-semibold text-black"
+              >
+                Confirmar parecer
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {readOnly && (
         <p className="rounded-xl border border-zinc-700 bg-zinc-900/50 px-3 py-2 text-sm text-zinc-400">

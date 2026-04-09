@@ -23,9 +23,20 @@ export default function NovaAuditoriaPage() {
   const [setorId, setSetorId] = useState("");
   const [dataAuditoria, setDataAuditoria] = useState(() => new Date().toISOString().slice(0, 10));
   /** Formato 24h (valor do input type="time": HH:mm). */
-  const [horarioAbertura, setHorarioAbertura] = useState("08:00");
+  const [horarioAbertura, setHorarioAbertura] = useState(() => {
+    const d = new Date();
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return `${hh}:${mm}`;
+  });
   const [loading, setLoading] = useState(false);
   const [boot, setBoot] = useState(true);
+
+  function computeAbertaEmIso(data: string, timeHHmm: string): string {
+    const base = timeHHmm.length === 5 ? `${timeHHmm}:00` : timeHHmm;
+    const d = new Date(`${data}T${base}`);
+    return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+  }
 
   useEffect(() => {
     void (async () => {
@@ -79,6 +90,7 @@ export default function NovaAuditoriaPage() {
         auditor_id: meuAuditor.id,
         data_auditoria: dataAuditoria,
         horario_abertura: horarioAbertura.length === 5 ? `${horarioAbertura}:00` : horarioAbertura,
+        aberta_em: computeAbertaEmIso(dataAuditoria, horarioAbertura),
         status,
       });
       toast.success("Auditoria criada");

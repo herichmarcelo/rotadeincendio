@@ -35,7 +35,12 @@ export default async function ChecklistAuditoriaPage({ params }: Props) {
           {auditoria.horario_abertura ? ` · ${formatTime24(auditoria.horario_abertura)}` : ""}
         </p>
       </div>
-      <ChecklistFillClient auditoriaId={auditoria.id} auditoriaStatus={auditoria.status} />
+      <ChecklistFillClient
+        auditoriaId={auditoria.id}
+        auditoriaStatus={auditoria.status}
+        abertaEm={auditoria.aberta_em ?? null}
+        parecerAtraso={auditoria.parecer_atraso ?? null}
+      />
     </div>
   );
 }
