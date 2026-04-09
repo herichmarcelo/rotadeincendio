@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Auditoria, AuditoriaStatus } from "@/types/database";
+import { getErrorMessage } from "@/lib/errors";
 
 export function todayISODate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -72,7 +73,7 @@ export async function createAuditoria(
   row: Omit<Auditoria, "id" | "created_at">
 ) {
   const { data, error } = await supabase.from("auditorias").insert(row).select().single();
-  if (error) throw error;
+  if (error) throw new Error(getErrorMessage(error, "Erro ao criar auditoria"));
   return data;
 }
 

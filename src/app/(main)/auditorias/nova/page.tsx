@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { getErrorMessage } from "@/lib/errors";
 import { createAuditoria, initialStatusForDate } from "@/services/auditorias";
 import { getAuditorForCurrentUser } from "@/services/auditores";
 import { listUnidades, listSetores } from "@/services/unidades";
@@ -84,7 +85,8 @@ export default function NovaAuditoriaPage() {
       router.push("/auditorias");
       router.refresh();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Erro ao criar");
+      console.error("createAuditoria failed", err);
+      toast.error(getErrorMessage(err, "Erro ao criar"));
     } finally {
       setLoading(false);
     }
