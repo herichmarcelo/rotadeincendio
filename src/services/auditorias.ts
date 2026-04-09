@@ -53,7 +53,7 @@ export async function listAuditorias(
   if (filters?.setorId) q = q.eq("setor_id", filters.setorId);
 
   const { data, error } = await q;
-  if (error) throw error;
+  if (error) throw new Error(getErrorMessage(error, "Erro ao carregar auditorias"));
   return data ?? [];
 }
 
@@ -72,7 +72,7 @@ export async function getAuditoria(supabase: SupabaseClient, id: string) {
     )
     .eq("id", id)
     .single();
-  if (error) throw error;
+  if (error) throw new Error(getErrorMessage(error, "Erro ao carregar auditoria"));
   return data as Auditoria & {
     unidade: { nome: string } | null;
     setor: { nome: string } | null;
@@ -111,11 +111,11 @@ export async function updateAuditoria(
   >
 ) {
   const { data, error } = await supabase.from("auditorias").update(patch).eq("id", id).select().single();
-  if (error) throw error;
+  if (error) throw new Error(getErrorMessage(error, "Erro ao atualizar auditoria"));
   return data;
 }
 
 export async function deleteAuditoria(supabase: SupabaseClient, id: string) {
   const { error } = await supabase.from("auditorias").delete().eq("id", id);
-  if (error) throw error;
+  if (error) throw new Error(getErrorMessage(error, "Erro ao excluir auditoria"));
 }

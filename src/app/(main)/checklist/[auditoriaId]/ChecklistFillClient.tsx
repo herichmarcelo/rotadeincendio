@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle, Loader2, RefreshCw, Save, Wifi, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { getErrorMessage } from "@/lib/errors";
 import type { AuditoriaStatus, ChecklistItem, ChecklistResposta } from "@/types/database";
 import { updateAuditoria } from "@/services/auditorias";
 import { getAuditorForCurrentUser } from "@/services/auditores";
@@ -291,7 +292,8 @@ export function ChecklistFillClient({
       });
       toast.success("Item salvo");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Erro ao salvar");
+      console.error(err);
+      toast.error(getErrorMessage(err, "Erro ao salvar"));
     } finally {
       setSaving(null);
     }
@@ -311,7 +313,8 @@ export function ChecklistFillClient({
       await load();
       toast.success("Sincronizado com o servidor.");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Erro ao sincronizar");
+      console.error(err);
+      toast.error(getErrorMessage(err, "Erro ao sincronizar"));
     } finally {
       setSyncing(false);
     }
@@ -364,7 +367,8 @@ export function ChecklistFillClient({
       router.push("/auditorias");
       router.refresh();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Erro ao concluir");
+      console.error(err);
+      toast.error(getErrorMessage(err, "Erro ao concluir"));
     } finally {
       setClosing(false);
     }

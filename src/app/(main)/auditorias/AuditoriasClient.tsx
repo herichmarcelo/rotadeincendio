@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Download, Filter, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { getErrorMessage } from "@/lib/errors";
 import type { AuditoriaStatus } from "@/types/database";
 import { deleteAuditoria, listAuditorias, updateAuditoria } from "@/services/auditorias";
 import { getAuditorForCurrentUser } from "@/services/auditores";
@@ -133,7 +134,8 @@ export function AuditoriasClient() {
       setParecerRow(null);
       await load();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Erro ao salvar parecer");
+      console.error(err);
+      toast.error(getErrorMessage(err, "Erro ao salvar parecer"));
     } finally {
       setSavingParecer(false);
     }
@@ -153,7 +155,8 @@ export function AuditoriasClient() {
       toast.success("Status atualizado");
       await load();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Erro");
+      console.error(err);
+      toast.error(getErrorMessage(err, "Erro"));
     }
   }
 
@@ -232,7 +235,8 @@ export function AuditoriasClient() {
       toast.success("Auditoria removida");
       await load();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Erro");
+      console.error(err);
+      toast.error(getErrorMessage(err, "Erro"));
     }
   }
 
