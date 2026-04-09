@@ -43,7 +43,8 @@ export async function listAuditorias(
       *,
       unidade:unidades(nome),
       setor:setores(nome),
-      auditor:auditores(nome, email)
+      auditor:auditores!auditorias_auditor_id_fkey(nome, email),
+      parecer_auditor:auditores!auditorias_parecer_atraso_auditor_id_fkey(nome, email)
     `
     )
     .order("data_auditoria", { ascending: false });
@@ -65,7 +66,8 @@ export async function getAuditoria(supabase: SupabaseClient, id: string) {
       *,
       unidade:unidades(nome),
       setor:setores(nome),
-      auditor:auditores(nome, email)
+      auditor:auditores!auditorias_auditor_id_fkey(nome, email),
+      parecer_auditor:auditores!auditorias_parecer_atraso_auditor_id_fkey(nome, email)
     `
     )
     .eq("id", id)
@@ -75,6 +77,7 @@ export async function getAuditoria(supabase: SupabaseClient, id: string) {
     unidade: { nome: string } | null;
     setor: { nome: string } | null;
     auditor: { nome: string; email: string } | null;
+    parecer_auditor: { nome: string; email: string } | null;
   };
 }
 
