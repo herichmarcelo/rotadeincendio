@@ -8,6 +8,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { getErrorMessage } from "@/lib/errors";
 import type { AuditoriaStatus } from "@/types/database";
 import { deleteAuditoria, listAuditorias, updateAuditoria } from "@/services/auditorias";
+import { getSessionAccess } from "@/lib/sessionAccess";
 import { getAuditorForCurrentUser } from "@/services/auditores";
 import { listUnidades, listSetores } from "@/services/unidades";
 import type { Unidade, Setor } from "@/types/database";
@@ -48,6 +49,7 @@ export function AuditoriasClient() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [meuAuditorId, setMeuAuditorId] = useState<string | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   const [parecerOpen, setParecerOpen] = useState(false);
   const [parecerText, setParecerText] = useState("");
@@ -81,10 +83,16 @@ export function AuditoriasClient() {
   useEffect(() => {
     void (async () => {
       try {
-        const auditor = await getAuditorForCurrentUser(supabase);
-        setMeuAuditorId(auditor?.id ?? null);
+        const access = await getSessionAccess(supabase);
+        setIsSuperAdmin(access.isSuperAdmin);
+        setMeuAuditorId(access.auditorId);
+        if (!access.isSuperAdmin && !access.auditorId) {
+          const auditor = await getAuditorForCurrentUser(supabase);
+          setMeuAuditorId(auditor?.id ?? null);
+        }
       } catch {
         setMeuAuditorId(null);
+        setIsSuperAdmin(false);
       }
     })();
   }, [supabase]);
@@ -242,6 +250,12 @@ export function AuditoriasClient() {
 
   return (
     <div className="space-y-4">
+      {!isSuperAdmin && (
+        <p className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-sm text-zinc-400">
+          Você vê apenas as <span className="text-zinc-200">suas auditorias</span>. Administradores veem todas as rotas.
+        </p>
+      )}
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-2">
           <Link

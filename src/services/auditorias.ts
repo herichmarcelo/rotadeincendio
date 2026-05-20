@@ -1,6 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Auditoria, AuditoriaStatus } from "@/types/database";
 import { getErrorMessage } from "@/lib/errors";
+import {
+  assertCanAccessAuditoria,
+  AuditoriaAccessError,
+  canAccessAuditoria,
+  getSessionAccess,
+} from "@/lib/sessionAccess";
 
 export function todayISODate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -36,6 +42,12 @@ export async function listAuditorias(
   filters?: { unidadeId?: string; setorId?: string }
 ) {
   await syncAuditoriaStatuses(supabase);
+  const access = await getSessionAccess(supabase);
+
+  if (!access.isSuperAdmin && !access.auditorId) {
+    return [];
+  }
+
   let q = supabase
     .from("auditorias")
     .select(
@@ -48,6 +60,10 @@ export async function listAuditorias(
     `
     )
     .order("data_auditoria", { ascending: false });
+
+  if (!access.isSuperAdmin && access.auditorId) {
+    q = q.eq("auditor_id", access.auditorId);
+  }
 
   if (filters?.unidadeId) q = q.eq("unidade_id", filters.unidadeId);
   if (filters?.setorId) q = q.eq("setor_id", filters.setorId);
@@ -73,6 +89,12 @@ export async function getAuditoria(supabase: SupabaseClient, id: string) {
     .eq("id", id)
     .single();
   if (error) throw new Error(getErrorMessage(error, "Erro ao carregar auditoria"));
+
+  const access = await getSessionAccess(supabase);
+  if (!canAccessAuditoria(access, data as { auditor_id: string })) {
+    throw new AuditoriaAccessError();
+  }
+
   return data as Auditoria & {
     unidade: { nome: string } | null;
     setor: { nome: string } | null;
@@ -85,6 +107,13 @@ export async function createAuditoria(
   supabase: SupabaseClient,
   row: Omit<Auditoria, "id" | "created_at">
 ) {
+  const access = await getSessionAccess(supabase);
+  if (!access.isSuperAdmin) {
+    if (!access.auditorId || row.auditor_id !== access.auditorId) {
+      throw new AuditoriaAccessError("Você só pode criar auditorias em seu próprio nome.");
+    }
+  }
+
   const { data, error } = await supabase.from("auditorias").insert(row).select().single();
   if (error) throw new Error(getErrorMessage(error, "Erro ao criar auditoria"));
   return data;
@@ -110,12 +139,14 @@ export async function updateAuditoria(
     >
   >
 ) {
+  await assertCanAccessAuditoria(supabase, id);
   const { data, error } = await supabase.from("auditorias").update(patch).eq("id", id).select().single();
   if (error) throw new Error(getErrorMessage(error, "Erro ao atualizar auditoria"));
   return data;
 }
 
 export async function deleteAuditoria(supabase: SupabaseClient, id: string) {
+  await assertCanAccessAuditoria(supabase, id);
   const { error } = await supabase.from("auditorias").delete().eq("id", id);
   if (error) throw new Error(getErrorMessage(error, "Erro ao excluir auditoria"));
 }

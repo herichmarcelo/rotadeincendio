@@ -8,6 +8,8 @@ export interface Auditor {
   user_id?: string | null;
   /** Perfil (auditor ou super_admin) persistido no banco */
   perfil?: "auditor" | "super_admin" | null;
+  unidade_id?: string | null;
+  setor_id?: string | null;
   /** Rotina fixa (opcional para compatibilidade com dados antigos) */
   dia_vistoria?: string | null;
   horario_vistoria?: string | null; // HH:mm

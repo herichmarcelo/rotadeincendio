@@ -56,6 +56,16 @@ async function blobToDataUrl(blob: Blob): Promise<{ dataUrl: string; mime: strin
   return { dataUrl, mime };
 }
 
+async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: ctrl.signal, cache: "no-store" });
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 async function resolvePhotoDataUrl(url: string): Promise<{ dataUrl: string; mime: string } | null> {
   try {
     if (isOfflinePhotoRef(url)) {
@@ -63,7 +73,7 @@ async function resolvePhotoDataUrl(url: string): Promise<{ dataUrl: string; mime
       if (!blob) return null;
       return await blobToDataUrl(blob);
     }
-    const res = await fetch(url);
+    const res = await fetchWithTimeout(url, 8000);
     if (!res.ok) return null;
     const blob = await res.blob();
     return await blobToDataUrl(blob);
@@ -78,6 +88,7 @@ export function ChecklistIndexClient({ data }: { data: ChecklistIndexRow[] }) {
   async function handleExportOne(r: ChecklistIndexRow) {
     setExportingId(r.id);
     try {
+      toast.info("Gerando PDF… (pode demorar se houver muitas fotos)");
       const [{ jsPDF }, autoTableMod] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
       const autoTable = (autoTableMod as unknown as { default: (doc: unknown, opts: unknown) => void }).default;
 
@@ -187,8 +198,10 @@ export function ChecklistIndexClient({ data }: { data: ChecklistIndexRow[] }) {
           let col = 0;
           let x = marginX;
 
-          for (let i = 0; i < fotos.length; i++) {
-            const u = fotos[i]!;
+          // Proteção: evita travar em listas enormes de fotos
+          const fotosToRender = fotos.slice(0, 24);
+          for (let i = 0; i < fotosToRender.length; i++) {
+            const u = fotosToRender[i]!;
             ensureSpace(thumb + 6);
             if (col >= cols) {
               col = 0;

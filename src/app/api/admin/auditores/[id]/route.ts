@@ -34,6 +34,21 @@ async function assertSuperAdmin() {
   return { ok: false as const, status: 403, message: "Acesso negado." };
 }
 
+const SELECT_AUDITOR_ADMIN = `
+  id,
+  nome,
+  email,
+  user_id,
+  perfil,
+  unidade_id,
+  setor_id,
+  dia_vistoria,
+  horario_vistoria,
+  created_at,
+  unidade:unidades!auditores_unidade_id_fkey(nome),
+  setor:setores!auditores_setor_id_fkey(nome)
+`;
+
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const gate = await assertSuperAdmin();
   if (!gate.ok) return NextResponse.json({ error: gate.message }, { status: gate.status });
@@ -43,6 +58,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     | {
         nome?: string;
         email?: string;
+        unidade_id?: string | null;
+        setor_id?: string | null;
         dia_vistoria?: string;
         horario_vistoria?: string;
       }
@@ -51,6 +68,10 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const patch: Record<string, unknown> = {};
   if (typeof body?.nome === "string") patch.nome = body.nome.trim();
   if (typeof body?.email === "string") patch.email = body.email.trim().toLowerCase();
+  if (typeof body?.unidade_id === "string") patch.unidade_id = body.unidade_id.trim() || null;
+  if (body?.unidade_id === null) patch.unidade_id = null;
+  if (typeof body?.setor_id === "string") patch.setor_id = body.setor_id.trim() || null;
+  if (body?.setor_id === null) patch.setor_id = null;
   if (typeof body?.dia_vistoria === "string") patch.dia_vistoria = body.dia_vistoria.trim();
   if (typeof body?.horario_vistoria === "string") patch.horario_vistoria = body.horario_vistoria.trim();
 
@@ -63,7 +84,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     .from("auditores")
     .update(patch)
     .eq("id", id)
-    .select("id, nome, email, user_id, perfil, dia_vistoria, horario_vistoria, created_at")
+    .select(SELECT_AUDITOR_ADMIN)
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ data });
@@ -96,4 +117,3 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
 
   return NextResponse.json({ ok: true });
 }
-

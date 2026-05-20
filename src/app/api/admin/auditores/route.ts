@@ -34,6 +34,21 @@ async function assertSuperAdmin() {
   return { ok: false as const, status: 403, message: "Acesso negado." };
 }
 
+const SELECT_AUDITOR_ADMIN = `
+  id,
+  nome,
+  email,
+  user_id,
+  perfil,
+  unidade_id,
+  setor_id,
+  dia_vistoria,
+  horario_vistoria,
+  created_at,
+  unidade:unidades!auditores_unidade_id_fkey(nome),
+  setor:setores!auditores_setor_id_fkey(nome)
+`;
+
 export async function GET() {
   const gate = await assertSuperAdmin();
   if (!gate.ok) return NextResponse.json({ error: gate.message }, { status: gate.status });
@@ -41,7 +56,7 @@ export async function GET() {
   const admin = createSupabaseServiceRoleClient();
   const { data, error } = await admin
     .from("auditores")
-    .select("id, nome, email, user_id, perfil, dia_vistoria, horario_vistoria, created_at")
+    .select(SELECT_AUDITOR_ADMIN)
     .order("nome");
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ data: data ?? [] });
@@ -56,6 +71,8 @@ export async function POST(req: Request) {
         nome?: string;
         email?: string;
         senha?: string;
+        unidade_id?: string;
+        setor_id?: string;
         dia_vistoria?: string;
         horario_vistoria?: string;
       }
@@ -64,10 +81,12 @@ export async function POST(req: Request) {
   const nome = body?.nome?.trim();
   const email = body?.email?.trim().toLowerCase();
   const senha = body?.senha?.trim();
+  const unidade_id = body?.unidade_id?.trim();
+  const setor_id = body?.setor_id?.trim();
   const dia_vistoria = body?.dia_vistoria?.trim();
   const horario_vistoria = body?.horario_vistoria?.trim();
 
-  if (!nome || !email || !senha || !dia_vistoria || !horario_vistoria) {
+  if (!nome || !email || !senha || !unidade_id || !setor_id || !dia_vistoria || !horario_vistoria) {
     return NextResponse.json({ error: "Campos obrigatórios ausentes." }, { status: 400 });
   }
 
@@ -94,10 +113,12 @@ export async function POST(req: Request) {
       email,
       user_id: created.user.id,
       perfil: "auditor",
+      unidade_id,
+      setor_id,
       dia_vistoria,
       horario_vistoria,
     })
-    .select("id, nome, email, user_id, perfil, dia_vistoria, horario_vistoria, created_at")
+    .select(SELECT_AUDITOR_ADMIN)
     .single();
 
   if (insertError) {
@@ -112,4 +133,3 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ data: row }, { status: 201 });
 }
-

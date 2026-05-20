@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/Card";
+import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { listSetores, listUnidades } from "@/services/unidades";
+import type { Setor, Unidade } from "@/types/database";
 
 type DiaSemana =
   | "Segunda-feira"
@@ -18,6 +21,10 @@ type AuditorAdmin = {
   id: string;
   nome: string;
   email: string;
+  unidade_id: string | null;
+  setor_id: string | null;
+  unidade_nome: string | null;
+  setor_nome: string | null;
   dia: DiaSemana;
   horario: string; // HH:mm
 };
@@ -27,6 +34,10 @@ type ApiAuditor = {
   nome: string;
   email: string;
   perfil?: "auditor" | "super_admin" | null;
+  unidade_id: string | null;
+  setor_id: string | null;
+  unidade?: { nome: string } | null;
+  setor?: { nome: string } | null;
   dia_vistoria: string | null;
   horario_vistoria: string | null;
 };
@@ -49,12 +60,18 @@ export function SuperAdminAuditoresClient() {
   // TODO (Restrição de acesso): proteger esta rota para apenas Super Admin (ex.: checar claims/role no JWT do Supabase).
   // Nesta etapa estamos focando no layout + estado mockado.
 
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+
   const initial = useMemo<AuditorAdmin[]>(
     () => [
       {
         id: "mock-1",
         nome: "Herich Marcelo",
         email: "herich.marcel0@example.com",
+        unidade_id: null,
+        setor_id: null,
+        unidade_nome: null,
+        setor_nome: null,
         dia: "Sexta-feira",
         horario: "16:00",
       },
@@ -62,6 +79,10 @@ export function SuperAdminAuditoresClient() {
         id: "mock-2",
         nome: "Igor Silva",
         email: "igor.silva@example.com",
+        unidade_id: null,
+        setor_id: null,
+        unidade_nome: null,
+        setor_nome: null,
         dia: "Sábado",
         horario: "19:00",
       },
@@ -75,9 +96,15 @@ export function SuperAdminAuditoresClient() {
   const [submitting, setSubmitting] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
 
+  const [unidades, setUnidades] = useState<Unidade[]>([]);
+  const [createSetores, setCreateSetores] = useState<Setor[]>([]);
+  const [editSetores, setEditSetores] = useState<Setor[]>([]);
+
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
+  const [unidadeId, setUnidadeId] = useState("");
+  const [setorId, setSetorId] = useState("");
   const [dia, setDia] = useState<DiaSemana>("Sexta-feira");
   const [horario, setHorario] = useState("16:00");
 
@@ -85,8 +112,51 @@ export function SuperAdminAuditoresClient() {
     setNome("");
     setEmail("");
     setSenha("");
+    setUnidadeId("");
+    setSetorId("");
+    setCreateSetores([]);
     setDia("Sexta-feira");
     setHorario("16:00");
+  }
+
+  async function loadUnidades() {
+    try {
+      const data = await listUnidades(supabase);
+      setUnidades(data);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erro ao carregar unidades");
+    }
+  }
+
+  async function loadCreateSetores(nextUnidadeId: string) {
+    if (!nextUnidadeId) {
+      setCreateSetores([]);
+      setSetorId("");
+      return;
+    }
+    try {
+      const data = await listSetores(supabase, nextUnidadeId);
+      setCreateSetores(data);
+      setSetorId((prev) => (data.some((s) => s.id === prev) ? prev : ""));
+    } catch (err: unknown) {
+      setCreateSetores([]);
+      setSetorId("");
+      toast.error(err instanceof Error ? err.message : "Erro ao carregar setores");
+    }
+  }
+
+  async function loadEditSetores(nextUnidadeId: string) {
+    if (!nextUnidadeId) {
+      setEditSetores([]);
+      return;
+    }
+    try {
+      const data = await listSetores(supabase, nextUnidadeId);
+      setEditSetores(data);
+    } catch (err: unknown) {
+      setEditSetores([]);
+      toast.error(err instanceof Error ? err.message : "Erro ao carregar setores");
+    }
   }
 
   async function load() {
@@ -99,6 +169,10 @@ export function SuperAdminAuditoresClient() {
         id: r.id,
         nome: r.nome,
         email: r.email,
+        unidade_id: r.unidade_id ?? null,
+        setor_id: r.setor_id ?? null,
+        unidade_nome: r.unidade?.nome ?? null,
+        setor_nome: r.setor?.nome ?? null,
         dia: (r.dia_vistoria || "Sexta-feira") as DiaSemana,
         horario: (r.horario_vistoria || "16:00") as string,
       }));
@@ -114,12 +188,18 @@ export function SuperAdminAuditoresClient() {
 
   useEffect(() => {
     void load();
+    void loadUnidades();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    void loadCreateSetores(unidadeId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unidadeId]);
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!nome.trim() || !email.trim() || !senha.trim() || !dia || !horario) {
+    if (!nome.trim() || !email.trim() || !senha.trim() || !unidadeId || !setorId || !dia || !horario) {
       toast.error("Preencha todos os campos obrigatórios.");
       return;
     }
@@ -135,6 +215,8 @@ export function SuperAdminAuditoresClient() {
           nome,
           email,
           senha,
+          unidade_id: unidadeId,
+          setor_id: setorId,
           dia_vistoria: dia,
           horario_vistoria: horario,
         }),
@@ -148,6 +230,10 @@ export function SuperAdminAuditoresClient() {
         id: r.id,
         nome: r.nome,
         email: r.email,
+        unidade_id: r.unidade_id ?? unidadeId,
+        setor_id: r.setor_id ?? setorId,
+        unidade_nome: r.unidade?.nome ?? null,
+        setor_nome: r.setor?.nome ?? null,
         dia: (r.dia_vistoria || dia) as DiaSemana,
         horario: (r.horario_vistoria || horario) as string,
       };
@@ -163,16 +249,25 @@ export function SuperAdminAuditoresClient() {
 
   function startEdit(a: AuditorAdmin) {
     setEditing({ ...a });
+    void loadEditSetores(a.unidade_id ?? "");
   }
 
   function cancelEdit() {
     setEditing(null);
+    setEditSetores([]);
   }
 
   async function saveEdit(e: React.FormEvent) {
     e.preventDefault();
     if (!editing) return;
-    if (!editing.nome.trim() || !editing.email.trim() || !editing.dia || !editing.horario) {
+    if (
+      !editing.nome.trim() ||
+      !editing.email.trim() ||
+      !editing.unidade_id ||
+      !editing.setor_id ||
+      !editing.dia ||
+      !editing.horario
+    ) {
       toast.error("Preencha os campos obrigatórios.");
       return;
     }
@@ -185,6 +280,8 @@ export function SuperAdminAuditoresClient() {
         body: JSON.stringify({
           nome: editing.nome,
           email: editing.email,
+          unidade_id: editing.unidade_id,
+          setor_id: editing.setor_id,
           dia_vistoria: editing.dia,
           horario_vistoria: editing.horario,
         }),
@@ -197,11 +294,16 @@ export function SuperAdminAuditoresClient() {
         id: r.id,
         nome: r.nome,
         email: r.email,
+        unidade_id: r.unidade_id ?? editing.unidade_id,
+        setor_id: r.setor_id ?? editing.setor_id,
+        unidade_nome: r.unidade?.nome ?? null,
+        setor_nome: r.setor?.nome ?? null,
         dia: (r.dia_vistoria || editing.dia) as DiaSemana,
         horario: (r.horario_vistoria || editing.horario) as string,
       };
       setRows((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
       setEditing(null);
+      setEditSetores([]);
       toast.success("Auditor atualizado.");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Erro ao salvar");
@@ -257,6 +359,39 @@ export function SuperAdminAuditoresClient() {
               placeholder="ex.: herich@empresa.com"
               autoComplete="email"
             />
+          </label>
+
+          <label className="text-sm sm:col-span-1">
+            <span className="text-zinc-500">Unidade *</span>
+            <select
+              value={unidadeId}
+              onChange={(e) => setUnidadeId(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+            >
+              <option value="">Selecione</option>
+              {unidades.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.nome}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="text-sm sm:col-span-1">
+            <span className="text-zinc-500">Setor *</span>
+            <select
+              value={setorId}
+              onChange={(e) => setSetorId(e.target.value)}
+              disabled={!unidadeId}
+              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
+            >
+              <option value="">Selecione</option>
+              {createSetores.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nome}
+                </option>
+              ))}
+            </select>
           </label>
 
           <label className="text-sm sm:col-span-1">
@@ -325,9 +460,11 @@ export function SuperAdminAuditoresClient() {
           <p className="py-8 text-center text-sm text-zinc-500">Nenhum auditor cadastrado.</p>
         ) : (
           <div className="overflow-hidden rounded-xl border border-zinc-800">
-            <div className="hidden grid-cols-[1.4fr_1.2fr_1.2fr_240px] gap-3 bg-zinc-950/60 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 md:grid">
+            <div className="hidden grid-cols-[1.3fr_1.2fr_1fr_1fr_1.2fr_240px] gap-3 bg-zinc-950/60 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 md:grid">
               <span>Nome</span>
               <span>E-mail</span>
+              <span>Unidade</span>
+              <span>Setor</span>
               <span>Rotina</span>
               <span className="text-right">Ações</span>
             </div>
@@ -339,7 +476,10 @@ export function SuperAdminAuditoresClient() {
                 return (
                   <li key={a.id} className="px-4 py-4">
                     {isEditing && editing ? (
-                      <form onSubmit={saveEdit} className="grid grid-cols-1 gap-3 md:grid-cols-[1.4fr_1.2fr_1.2fr_240px] md:items-end">
+                      <form
+                        onSubmit={saveEdit}
+                        className="grid grid-cols-1 gap-3 md:grid-cols-[1.3fr_1.2fr_1fr_1fr_1.2fr_240px] md:items-end"
+                      >
                         <label className="text-sm">
                           <span className="text-zinc-500">Nome</span>
                           <input
@@ -357,6 +497,52 @@ export function SuperAdminAuditoresClient() {
                             onChange={(e) => setEditing({ ...editing, email: e.target.value })}
                             className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
                           />
+                        </label>
+
+                        <label className="text-sm">
+                          <span className="text-zinc-500">Unidade</span>
+                          <select
+                            value={editing.unidade_id ?? ""}
+                            onChange={(e) => {
+                              const next = e.target.value;
+                              setEditing({
+                                ...editing,
+                                unidade_id: next || null,
+                                setor_id: null,
+                              });
+                              void loadEditSetores(next);
+                            }}
+                            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+                          >
+                            <option value="">Selecione</option>
+                            {unidades.map((u) => (
+                              <option key={u.id} value={u.id}>
+                                {u.nome}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label className="text-sm">
+                          <span className="text-zinc-500">Setor</span>
+                          <select
+                            value={editing.setor_id ?? ""}
+                            onChange={(e) =>
+                              setEditing({
+                                ...editing,
+                                setor_id: e.target.value || null,
+                              })
+                            }
+                            disabled={!editing.unidade_id}
+                            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
+                          >
+                            <option value="">Selecione</option>
+                            {editSetores.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.nome}
+                              </option>
+                            ))}
+                          </select>
                         </label>
 
                         <div className="grid grid-cols-2 gap-3">
@@ -405,12 +591,16 @@ export function SuperAdminAuditoresClient() {
                         </div>
                       </form>
                     ) : (
-                      <div className="grid grid-cols-1 gap-3 md:grid-cols-[1.4fr_1.2fr_1.2fr_240px] md:items-center">
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-[1.3fr_1.2fr_1fr_1fr_1.2fr_240px] md:items-center">
                         <div>
                           <p className="font-medium text-white">{a.nome}</p>
-                          <p className="text-xs text-zinc-500 md:hidden">{a.email}</p>
+                          <p className="text-xs text-zinc-500 md:hidden">
+                            {a.email} · {a.unidade_nome ?? "—"} · {a.setor_nome ?? "—"}
+                          </p>
                         </div>
                         <p className="hidden text-sm text-zinc-400 md:block">{a.email}</p>
+                        <p className="hidden text-sm text-zinc-400 md:block">{a.unidade_nome ?? "—"}</p>
+                        <p className="hidden text-sm text-zinc-400 md:block">{a.setor_nome ?? "—"}</p>
                         <p className="text-sm text-zinc-300">{rotinaLabel(a)}</p>
                         <div className="flex flex-wrap gap-2 md:justify-end">
                           <button
@@ -440,4 +630,3 @@ export function SuperAdminAuditoresClient() {
     </div>
   );
 }
-

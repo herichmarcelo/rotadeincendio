@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { getErrorMessage } from "@/lib/errors";
+import { getSessionAccess } from "@/lib/sessionAccess";
 import { createAuditoria, initialStatusForDate } from "@/services/auditorias";
 import { getAuditorForCurrentUser } from "@/services/auditores";
 import { listUnidades, listSetores } from "@/services/unidades";
@@ -19,6 +20,9 @@ export default function NovaAuditoriaPage() {
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [setores, setSetores] = useState<Setor[]>([]);
   const [meuAuditor, setMeuAuditor] = useState<Auditor | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [unidadeNome, setUnidadeNome] = useState<string | null>(null);
+  const [setorNome, setSetorNome] = useState<string | null>(null);
   const [unidadeId, setUnidadeId] = useState("");
   const [setorId, setSetorId] = useState("");
   const [dataAuditoria, setDataAuditoria] = useState(() => new Date().toISOString().slice(0, 10));
@@ -41,13 +45,41 @@ export default function NovaAuditoriaPage() {
   useEffect(() => {
     void (async () => {
       try {
-        const [u, auditor] = await Promise.all([listUnidades(supabase), getAuditorForCurrentUser(supabase)]);
-        setUnidades(u);
+        const [access, auditor] = await Promise.all([
+          getSessionAccess(supabase),
+          getAuditorForCurrentUser(supabase),
+        ]);
+
+        setIsSuperAdmin(access.isSuperAdmin);
         setMeuAuditor(auditor);
-        if (u[0]) setUnidadeId(u[0].id);
+
         if (!auditor) {
           toast.error("Seu usuário não está vinculado a um auditor. Peça ao super admin para cadastrar seu acesso.");
+          return;
         }
+
+        if (!access.isSuperAdmin) {
+          if (!auditor.unidade_id || !auditor.setor_id) {
+            toast.error("Seu auditor não tem Unidade/Setor definidos. Peça ao super admin para atualizar seu cadastro.");
+            return;
+          }
+
+          setUnidadeId(auditor.unidade_id);
+          setSetorId(auditor.setor_id);
+
+          const [{ data: unidade }, { data: setor }] = await Promise.all([
+            supabase.from("unidades").select("nome").eq("id", auditor.unidade_id).maybeSingle(),
+            supabase.from("setores").select("nome").eq("id", auditor.setor_id).maybeSingle(),
+          ]);
+
+          setUnidadeNome(unidade?.nome ?? null);
+          setSetorNome(setor?.nome ?? null);
+          return;
+        }
+
+        const u = await listUnidades(supabase);
+        setUnidades(u);
+        if (u[0]) setUnidadeId(u[0].id);
       } catch (e) {
         console.error(e);
         toast.error("Erro ao carregar dados");
@@ -58,6 +90,7 @@ export default function NovaAuditoriaPage() {
   }, [supabase]);
 
   useEffect(() => {
+    if (!isSuperAdmin) return;
     if (!unidadeId) {
       setSetores([]);
       setSetorId("");
@@ -69,7 +102,7 @@ export default function NovaAuditoriaPage() {
         setSetorId(s[0]?.id ?? "");
       })
       .catch(() => {});
-  }, [supabase, unidadeId]);
+  }, [supabase, unidadeId, isSuperAdmin]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -129,36 +162,55 @@ export default function NovaAuditoriaPage() {
       </div>
       <Card>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <label className="block text-sm">
-            <span className="text-zinc-500">Unidade</span>
-            <select
-              required
-              value={unidadeId}
-              onChange={(e) => setUnidadeId(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm"
-            >
-              {unidades.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.nome}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm">
-            <span className="text-zinc-500">Setor</span>
-            <select
-              required
-              value={setorId}
-              onChange={(e) => setSetorId(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm"
-            >
-              {setores.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nome}
-                </option>
-              ))}
-            </select>
-          </label>
+          {isSuperAdmin ? (
+            <>
+              <label className="block text-sm">
+                <span className="text-zinc-500">Unidade</span>
+                <select
+                  required
+                  value={unidadeId}
+                  onChange={(e) => setUnidadeId(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm"
+                >
+                  {unidades.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.nome}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-sm">
+                <span className="text-zinc-500">Setor</span>
+                <select
+                  required
+                  value={setorId}
+                  onChange={(e) => setSetorId(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm"
+                >
+                  {setores.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nome}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
+          ) : (
+            <>
+              <div className="block text-sm">
+                <span className="text-zinc-500">Unidade</span>
+                <div className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900/40 px-3 py-2.5 text-sm text-zinc-200">
+                  {unidadeNome ?? "—"}
+                </div>
+              </div>
+              <div className="block text-sm">
+                <span className="text-zinc-500">Setor</span>
+                <div className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900/40 px-3 py-2.5 text-sm text-zinc-200">
+                  {setorNome ?? "—"}
+                </div>
+              </div>
+            </>
+          )}
           <div className="block text-sm">
             <span className="text-zinc-500">Auditor</span>
             <div className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900/40 px-3 py-2.5 text-sm text-zinc-200">
