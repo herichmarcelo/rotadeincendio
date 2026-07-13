@@ -25,22 +25,9 @@ export default function NovaAuditoriaPage() {
   const [setorNome, setSetorNome] = useState<string | null>(null);
   const [unidadeId, setUnidadeId] = useState("");
   const [setorId, setSetorId] = useState("");
-  const [dataAuditoria, setDataAuditoria] = useState(() => new Date().toISOString().slice(0, 10));
-  /** Formato 24h (valor do input type="time": HH:mm). */
-  const [horarioAbertura, setHorarioAbertura] = useState(() => {
-    const d = new Date();
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mm = String(d.getMinutes()).padStart(2, "0");
-    return `${hh}:${mm}`;
-  });
+  
   const [loading, setLoading] = useState(false);
   const [boot, setBoot] = useState(true);
-
-  function computeAbertaEmIso(data: string, timeHHmm: string): string {
-    const base = timeHHmm.length === 5 ? `${timeHHmm}:00` : timeHHmm;
-    const d = new Date(`${data}T${base}`);
-    return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
-  }
 
   useEffect(() => {
     void (async () => {
@@ -114,18 +101,33 @@ export default function NovaAuditoriaPage() {
       toast.error("Preencha unidade e setor.");
       return;
     }
+    
     setLoading(true);
+    
     try {
+      // Captura o momento EXATO em que o usuário clica em salvar
+      const agora = new Date();
+      
+      const dataAuditoria = agora.toISOString().slice(0, 10);
+      
+      const hh = String(agora.getHours()).padStart(2, "0");
+      const mm = String(agora.getMinutes()).padStart(2, "0");
+      const ss = String(agora.getSeconds()).padStart(2, "0");
+      const horarioAbertura = `${hh}:${mm}:${ss}`;
+      
+      const abertaEm = agora.toISOString();
       const status = initialStatusForDate(dataAuditoria);
+
       await createAuditoria(supabase, {
         unidade_id: unidadeId,
         setor_id: setorId,
         auditor_id: meuAuditor.id,
         data_auditoria: dataAuditoria,
-        horario_abertura: horarioAbertura.length === 5 ? `${horarioAbertura}:00` : horarioAbertura,
-        aberta_em: computeAbertaEmIso(dataAuditoria, horarioAbertura),
+        horario_abertura: horarioAbertura,
+        aberta_em: abertaEm,
         status,
       });
+      
       toast.success("Auditoria criada");
       router.push("/auditorias");
       router.refresh();
@@ -157,7 +159,7 @@ export default function NovaAuditoriaPage() {
       <div>
         <h1 className="text-2xl font-bold text-white">Nova auditoria</h1>
         <p className="text-sm text-zinc-400">
-          Defina local, data e horário de abertura (24h). O auditor é sempre você.
+          Defina local da auditoria. A data e hora serão registradas automaticamente no momento da criação para segurança do checklist.
         </p>
       </div>
       <Card>
@@ -217,37 +219,19 @@ export default function NovaAuditoriaPage() {
               {meuAuditor ? meuAuditor.nome : "— (vincule seu usuário a um cadastro de auditor)"}
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block text-sm">
-              <span className="text-zinc-500">Data da auditoria</span>
-              <input
-                type="date"
-                required
-                value={dataAuditoria}
-                onChange={(e) => setDataAuditoria(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm"
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="text-zinc-500">Horário de abertura (24h)</span>
-              <input
-                type="time"
-                required
-                step={60}
-                value={horarioAbertura}
-                onChange={(e) => setHorarioAbertura(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm [color-scheme:dark]"
-              />
-            </label>
-          </div>
+          
           <button
             type="submit"
             disabled={loading || !meuAuditor}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-fire-red py-3 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-fire-red py-3 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-60 mt-4"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            Salvar auditoria
+            Criar e Iniciar Auditoria
           </button>
+          
+          <p className="text-xs text-center text-zinc-500 mt-2">
+            A data e o horário atual serão gravados automaticamente ao confirmar.
+          </p>
         </form>
       </Card>
     </div>

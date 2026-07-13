@@ -27,6 +27,7 @@ type AuditorAdmin = {
   setor_nome: string | null;
   dia: DiaSemana;
   horario: string; // HH:mm
+  perfil: "auditor" | "super_admin";
 };
 
 type ApiAuditor = {
@@ -107,6 +108,7 @@ export function SuperAdminAuditoresClient() {
   const [setorId, setSetorId] = useState("");
   const [dia, setDia] = useState<DiaSemana>("Sexta-feira");
   const [horario, setHorario] = useState("16:00");
+  const [perfil, setPerfil] = useState<"auditor" | "super_admin">("auditor");
 
   function resetForm() {
     setNome("");
@@ -117,6 +119,7 @@ export function SuperAdminAuditoresClient() {
     setCreateSetores([]);
     setDia("Sexta-feira");
     setHorario("16:00");
+    setPerfil("auditor");
   }
 
   async function loadUnidades() {
@@ -175,6 +178,7 @@ export function SuperAdminAuditoresClient() {
         setor_nome: r.setor?.nome ?? null,
         dia: (r.dia_vistoria || "Sexta-feira") as DiaSemana,
         horario: (r.horario_vistoria || "16:00") as string,
+        perfil: r.perfil === "super_admin" ? "super_admin" : "auditor",
       }));
       setRows(mapped);
     } catch (e) {
@@ -219,6 +223,7 @@ export function SuperAdminAuditoresClient() {
           setor_id: setorId,
           dia_vistoria: dia,
           horario_vistoria: horario,
+          perfil,
         }),
       });
       const json = (await res.json()) as { data?: ApiAuditor; error?: string };
@@ -284,6 +289,7 @@ export function SuperAdminAuditoresClient() {
           setor_id: editing.setor_id,
           dia_vistoria: editing.dia,
           horario_vistoria: editing.horario,
+          perfil: editing.perfil,
         }),
       });
       const json = (await res.json()) as { data?: ApiAuditor; error?: string };
@@ -406,7 +412,19 @@ export function SuperAdminAuditoresClient() {
             />
           </label>
 
-          <div className="grid grid-cols-2 gap-3 sm:col-span-1">
+          <label className="text-sm sm:col-span-1">
+            <span className="text-zinc-500">Perfil *</span>
+            <select
+              value={perfil}
+              onChange={(e) => setPerfil(e.target.value as "auditor" | "super_admin")}
+              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+            >
+              <option value="auditor">Auditor</option>
+              <option value="super_admin">Super Admin</option>
+            </select>
+          </label>
+
+          <div className="grid grid-cols-2 gap-3 sm:col-span-2">
             <label className="text-sm">
               <span className="text-zinc-500">Dia da vistoria *</span>
               <select
@@ -478,7 +496,7 @@ export function SuperAdminAuditoresClient() {
                     {isEditing && editing ? (
                       <form
                         onSubmit={saveEdit}
-                        className="grid grid-cols-1 gap-3 md:grid-cols-[1.3fr_1.2fr_1fr_1fr_1.2fr_240px] md:items-end"
+                        className="grid grid-cols-1 gap-3 md:grid-cols-[1.3fr_1.2fr_1fr_1fr_1.2fr_1.2fr_240px] md:items-end"
                       >
                         <label className="text-sm">
                           <span className="text-zinc-500">Nome</span>
@@ -542,6 +560,18 @@ export function SuperAdminAuditoresClient() {
                                 {s.nome}
                               </option>
                             ))}
+                          </select>
+                        </label>
+
+                        <label className="text-sm">
+                          <span className="text-zinc-500">Perfil</span>
+                          <select
+                            value={editing.perfil}
+                            onChange={(e) => setEditing({ ...editing, perfil: e.target.value as "auditor" | "super_admin" })}
+                            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+                          >
+                            <option value="auditor">Auditor</option>
+                            <option value="super_admin">Super Admin</option>
                           </select>
                         </label>
 

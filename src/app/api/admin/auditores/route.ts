@@ -75,6 +75,7 @@ export async function POST(req: Request) {
         setor_id?: string;
         dia_vistoria?: string;
         horario_vistoria?: string;
+        perfil?: "auditor" | "super_admin";
       }
     | null;
 
@@ -85,6 +86,7 @@ export async function POST(req: Request) {
   const setor_id = body?.setor_id?.trim();
   const dia_vistoria = body?.dia_vistoria?.trim();
   const horario_vistoria = body?.horario_vistoria?.trim();
+  const perfil = body?.perfil === "super_admin" ? "super_admin" : "auditor";
 
   if (!nome || !email || !senha || !unidade_id || !setor_id || !dia_vistoria || !horario_vistoria) {
     return NextResponse.json({ error: "Campos obrigatórios ausentes." }, { status: 400 });
@@ -97,6 +99,9 @@ export async function POST(req: Request) {
     email,
     password: senha,
     email_confirm: true,
+    app_metadata: {
+      role: perfil,
+    },
   });
   if (createUserError || !created.user) {
     return NextResponse.json(
@@ -112,7 +117,7 @@ export async function POST(req: Request) {
       nome,
       email,
       user_id: created.user.id,
-      perfil: "auditor",
+      perfil,
       unidade_id,
       setor_id,
       dia_vistoria,

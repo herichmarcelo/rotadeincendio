@@ -62,6 +62,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
         setor_id?: string | null;
         dia_vistoria?: string;
         horario_vistoria?: string;
+        perfil?: "auditor" | "super_admin";
       }
     | null;
 
@@ -74,6 +75,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (body?.setor_id === null) patch.setor_id = null;
   if (typeof body?.dia_vistoria === "string") patch.dia_vistoria = body.dia_vistoria.trim();
   if (typeof body?.horario_vistoria === "string") patch.horario_vistoria = body.horario_vistoria.trim();
+  if (body?.perfil === "auditor" || body?.perfil === "super_admin") patch.perfil = body.perfil;
 
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: "Nada para atualizar." }, { status: 400 });
@@ -87,6 +89,16 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     .select(SELECT_AUDITOR_ADMIN)
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  // Update auth user's app_metadata if perfil changed
+  if (patch.perfil && data?.user_id) {
+    await admin.auth.admin.updateUserById(data.user_id, {
+      app_metadata: {
+        role: patch.perfil,
+      },
+    });
+  }
+
   return NextResponse.json({ data });
 }
 

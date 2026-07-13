@@ -16,13 +16,28 @@ function parseAllowedEmails() {
     .filter(Boolean);
 }
 
-function isSuperAdmin(user: { app_metadata?: Record<string, unknown>; email?: string | null }) {
-  return user.app_metadata?.role === "super_admin";
+async function isSuperAdmin(
+  user: { app_metadata?: Record<string, unknown>; email?: string | null; id?: string },
+  supabase: ReturnType<typeof createServerClient>
+) {
+  if (user.app_metadata?.role === "super_admin") return true;
+
+  // Check auditores table for perfil='super_admin'
+  const { data } = await supabase
+    .from("auditores")
+    .select("perfil")
+    .or(`user_id.eq.${user.id},email.ilike.${user.email}`)
+    .maybeSingle();
+
+  return data?.perfil === "super_admin";
 }
 
 /** Super admin via Auth ou fallback SUPER_ADMIN_EMAILS (bootstrap). */
-function canAccessSuperAdminFeatures(user: { app_metadata?: Record<string, unknown>; email?: string | null }) {
-  if (isSuperAdmin(user)) return true;
+async function canAccessSuperAdminFeatures(
+  user: { app_metadata?: Record<string, unknown>; email?: string | null; id?: string },
+  supabase: ReturnType<typeof createServerClient>
+) {
+  if (await isSuperAdmin(user, supabase)) return true;
   const allow = parseAllowedEmails();
   const email = user.email?.toLowerCase();
   return allow.length > 0 && !!email && allow.includes(email);
@@ -81,13 +96,13 @@ export async function middleware(request: NextRequest) {
   }
 
   if (path === ADMIN_PREFIX || path.startsWith(`${ADMIN_PREFIX}/`)) {
-    if (canAccessSuperAdminFeatures(user)) return supabaseResponse;
+    if (await canAccessSuperAdminFeatures(user, supabase)) return supabaseResponse;
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   // Tela legada /auditores: só super admin (cadastro fica em /admin/auditores).
   if (path === AUDITORES_PAGE || path.startsWith(`${AUDITORES_PAGE}/`)) {
-    if (canAccessSuperAdminFeatures(user)) {
+    if (await canAccessSuperAdminFeatures(user, supabase)) {
       return NextResponse.redirect(new URL("/admin/auditores", request.url));
     }
     return NextResponse.redirect(new URL("/dashboard", request.url));
@@ -95,7 +110,7 @@ export async function middleware(request: NextRequest) {
 
   // Unidades e setores: só super admin.
   if (path === UNIDADES_PAGE || path.startsWith(`${UNIDADES_PAGE}/`)) {
-    if (canAccessSuperAdminFeatures(user)) return supabaseResponse;
+    if (await canAccessSuperAdminFeatures(user, supabase)) return supabaseResponse;
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
