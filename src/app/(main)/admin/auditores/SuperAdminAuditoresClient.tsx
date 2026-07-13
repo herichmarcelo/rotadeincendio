@@ -58,40 +58,9 @@ function rotinaLabel(a: Pick<AuditorAdmin, "dia" | "horario">) {
 }
 
 export function SuperAdminAuditoresClient() {
-  // TODO (Restrição de acesso): proteger esta rota para apenas Super Admin (ex.: checar claims/role no JWT do Supabase).
-  // Nesta etapa estamos focando no layout + estado mockado.
-
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
-  const initial = useMemo<AuditorAdmin[]>(
-    () => [
-      {
-        id: "mock-1",
-        nome: "Herich Marcelo",
-        email: "herich.marcel0@example.com",
-        unidade_id: null,
-        setor_id: null,
-        unidade_nome: null,
-        setor_nome: null,
-        dia: "Sexta-feira",
-        horario: "16:00",
-      },
-      {
-        id: "mock-2",
-        nome: "Igor Silva",
-        email: "igor.silva@example.com",
-        unidade_id: null,
-        setor_id: null,
-        unidade_nome: null,
-        setor_nome: null,
-        dia: "Sábado",
-        horario: "19:00",
-      },
-    ],
-    []
-  );
-
-  const [rows, setRows] = useState<AuditorAdmin[]>(initial);
+  const [rows, setRows] = useState<AuditorAdmin[]>([]);
   const [editing, setEditing] = useState<AuditorAdmin | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -183,8 +152,8 @@ export function SuperAdminAuditoresClient() {
       setRows(mapped);
     } catch (e) {
       console.error(e);
-      setRows(initial);
-      toast.error("Não foi possível carregar do Supabase. Mostrando mock.");
+      setRows([]);
+      toast.error("Erro ao carregar os dados dos auditores do servidor.");
     } finally {
       setLoading(false);
     }
@@ -210,8 +179,6 @@ export function SuperAdminAuditoresClient() {
 
     setSubmitting(true);
     try {
-      // Supabase Auth (admin.createUser) + insert em public.auditores acontece no backend:
-      // POST /api/admin/auditores
       const res = await fetch("/api/admin/auditores", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -241,6 +208,7 @@ export function SuperAdminAuditoresClient() {
         setor_nome: r.setor?.nome ?? null,
         dia: (r.dia_vistoria || dia) as DiaSemana,
         horario: (r.horario_vistoria || horario) as string,
+        perfil: r.perfil === "super_admin" ? "super_admin" : "auditor",
       };
       setRows((prev) => [next, ...prev.filter((x) => x.id !== next.id)]);
       resetForm();
@@ -306,6 +274,7 @@ export function SuperAdminAuditoresClient() {
         setor_nome: r.setor?.nome ?? null,
         dia: (r.dia_vistoria || editing.dia) as DiaSemana,
         horario: (r.horario_vistoria || editing.horario) as string,
+        perfil: r.perfil === "super_admin" ? "super_admin" : "auditor",
       };
       setRows((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
       setEditing(null);
@@ -321,7 +290,7 @@ export function SuperAdminAuditoresClient() {
   async function handleDelete(id: string) {
     const a = rows.find((r) => r.id === id);
     if (!a) return;
-    if (!confirm(`Excluir o auditor \"${a.nome}\"?`)) return;
+    if (!confirm(`Excluir o auditor "${a.nome}"?`)) return;
 
     try {
       const res = await fetch(`/api/admin/auditores/${id}`, { method: "DELETE" });
@@ -350,7 +319,7 @@ export function SuperAdminAuditoresClient() {
               value={nome}
               onChange={(e) => setNome(e.target.value)}
               className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
-              placeholder="Ex.: Herich Marcelo"
+              placeholder="Ex.: João Silva"
               autoComplete="name"
             />
           </label>
@@ -362,7 +331,7 @@ export function SuperAdminAuditoresClient() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
-              placeholder="ex.: herich@empresa.com"
+              placeholder="ex.: joao@empresa.com"
               autoComplete="email"
             />
           </label>
