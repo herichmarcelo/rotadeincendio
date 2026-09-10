@@ -13,7 +13,7 @@ import { getAuditorForCurrentUser } from "@/services/auditores";
 import { listUnidades, listSetores } from "@/services/unidades";
 import type { Unidade, Setor } from "@/types/database";
 import { Card } from "@/components/ui/Card";
-import { cn, formatTime24 } from "@/lib/utils";
+import { cn, formatDateBR, formatTime24 } from "@/lib/utils";
 
 type Row = {
   id: string;
@@ -202,7 +202,7 @@ export function AuditoriasClient() {
       const head = [["Status", "Data", "Abertura", "Concluída", "Unidade", "Setor", "Auditor"]];
       const body = rows.map((r) => [
         statusLabel[r.status],
-        new Date(r.data_auditoria + "T12:00:00").toLocaleDateString("pt-BR"),
+        formatDateBR(r.data_auditoria),
         r.horario_abertura ? formatTime24(r.horario_abertura) : "—",
         r.status === "concluida" ? formatDoneTime(r.concluida_em) ?? "—" : "—",
         r.unidade?.nome ?? "—",
@@ -344,7 +344,7 @@ export function AuditoriasClient() {
                       {statusLabel[r.status]}
                     </span>
                     <span className="text-xs text-zinc-500">
-                      {new Date(r.data_auditoria + "T12:00:00").toLocaleDateString("pt-BR")}
+                      {formatDateBR(r.data_auditoria)}
                       {r.horario_abertura ? ` · ${formatTime24(r.horario_abertura)}` : ""}
                       {r.status === "concluida" && formatDoneTime(r.concluida_em)
                         ? ` · concluída ${formatDoneTime(r.concluida_em)}`
@@ -405,7 +405,7 @@ export function AuditoriasClient() {
               <p className="text-sm font-semibold text-white">Parecer sobre atraso</p>
               <p className="mt-1 text-xs text-zinc-400">
                 {parecerRow.unidade?.nome ?? "—"} · {parecerRow.setor?.nome ?? "—"} ·{" "}
-                {new Date(parecerRow.data_auditoria + "T12:00:00").toLocaleDateString("pt-BR")}
+                {formatDateBR(parecerRow.data_auditoria)}
               </p>
             </div>
             <label className="block text-sm">

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, CalendarClock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { getErrorMessage } from "@/lib/errors";
@@ -11,6 +11,7 @@ import { getSessionAccess } from "@/lib/sessionAccess";
 import { createAuditoria, initialStatusForDate } from "@/services/auditorias";
 import { getAuditorForCurrentUser } from "@/services/auditores";
 import { listUnidades, listSetores } from "@/services/unidades";
+import { getLocalDateISO } from "@/lib/utils";
 import type { Auditor, Unidade, Setor } from "@/types/database";
 import { Card } from "@/components/ui/Card";
 
@@ -105,10 +106,10 @@ export default function NovaAuditoriaPage() {
     setLoading(true);
     
     try {
-      // Captura o momento EXATO em que o usuário clica em salvar
+      // Captura o momento EXATO em que o usuário clica em salvar (usando a data local segura)
       const agora = new Date();
       
-      const dataAuditoria = agora.toISOString().slice(0, 10);
+      const dataAuditoria = getLocalDateISO(agora);
       
       const hh = String(agora.getHours()).padStart(2, "0");
       const mm = String(agora.getMinutes()).padStart(2, "0");
@@ -162,6 +163,19 @@ export default function NovaAuditoriaPage() {
           Defina local da auditoria. A data e hora serão registradas automaticamente no momento da criação para segurança do checklist.
         </p>
       </div>
+
+      {meuAuditor?.dia_vistoria && (
+        <div className="flex items-center gap-3 rounded-2xl border border-fire-red/30 bg-fire-red/10 p-3.5 text-xs text-zinc-300">
+          <CalendarClock className="h-5 w-5 shrink-0 text-fire-yellow" />
+          <div>
+            <p className="font-semibold text-white">Rotina Semanal Programada</p>
+            <p className="text-zinc-400">
+              Sua escala fixa é: <span className="text-zinc-200">{`Toda ${meuAuditor.dia_vistoria} às ${meuAuditor.horario_vistoria || "16:00"}`}</span>
+            </p>
+          </div>
+        </div>
+      )}
+
       <Card>
         <form onSubmit={handleSubmit} className="space-y-4">
           {isSuperAdmin ? (

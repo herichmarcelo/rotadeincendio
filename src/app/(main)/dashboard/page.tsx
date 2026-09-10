@@ -1,6 +1,8 @@
 import { CheckCircle2, ClipboardList, MapPin, AlertOctagon } from "lucide-react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getDashboardStats, getStatusDistribution } from "@/services/dashboard";
+import { getAuditorForCurrentUser } from "@/services/auditores";
+import { getLocalDateISO } from "@/lib/utils";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { DashboardCharts } from "@/components/dashboard/DashboardCharts";
 import { AlertsPanel } from "@/components/dashboard/AlertsPanel";
@@ -51,13 +53,35 @@ function SchemaSetupHint() {
 export default async function DashboardPage() {
   let stats: Awaited<ReturnType<typeof getDashboardStats>>;
   let distribution: Awaited<ReturnType<typeof getStatusDistribution>>;
+  let rotinaAuditor: { dia?: string | null; horario?: string | null; jaRealizadaHoje?: boolean } | null = null;
 
   try {
     const supabase = await createSupabaseServerClient();
-    [stats, distribution] = await Promise.all([
+    const [statsRes, distributionRes, auditor] = await Promise.all([
       getDashboardStats(supabase),
       getStatusDistribution(supabase),
+      getAuditorForCurrentUser(supabase),
     ]);
+
+    stats = statsRes;
+    distribution = distributionRes;
+
+    if (auditor?.dia_vistoria) {
+      const hoje = getLocalDateISO();
+      const { data: auditHoje } = await supabase
+        .from("auditorias")
+        .select("id")
+        .eq("auditor_id", auditor.id)
+        .eq("data_auditoria", hoje)
+        .limit(1)
+        .maybeSingle();
+
+      rotinaAuditor = {
+        dia: auditor.dia_vistoria,
+        horario: auditor.horario_vistoria,
+        jaRealizadaHoje: Boolean(auditHoje),
+      };
+    }
   } catch (e) {
     if (isMissingTablesError(e)) {
       return <SchemaSetupHint />;
@@ -93,7 +117,7 @@ export default async function DashboardPage() {
           <DashboardCharts distribution={distribution} />
         </div>
         <div className="lg:col-span-2">
-          <AlertsPanel vencidas={stats.vencidas} pendentes={stats.pendentes} />
+          <AlertsPanel vencidas={stats.vencidas} pendentes={stats.pendentes} rotina={rotinaAuditor} />
         </div>
       </div>
     </div>

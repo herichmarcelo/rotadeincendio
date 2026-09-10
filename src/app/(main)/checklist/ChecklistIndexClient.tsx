@@ -5,7 +5,7 @@ import { Download, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
-import { formatTime24 } from "@/lib/utils";
+import { formatDateBR, formatTime24 } from "@/lib/utils";
 import { getOfflineBlob, isOfflinePhotoRef, offlinePhotoId } from "@/lib/checklistOffline";
 import { listChecklistItens, listRespostasPorAuditoria } from "@/services/checklist";
 import type { AuditoriaStatus } from "@/types/database";
@@ -98,7 +98,7 @@ export function ChecklistIndexClient({ data }: { data: ChecklistIndexRow[] }) {
       doc.text("Auditoria — Rota de Incêndio", 14, 16);
       doc.setFontSize(10);
 
-      const datePt = new Date(r.data_auditoria + "T12:00:00").toLocaleDateString("pt-BR");
+      const datePt = formatDateBR(r.data_auditoria);
       const abertura = r.horario_abertura ? formatTime24(r.horario_abertura) : "—";
       const concluida = r.status === "concluida" ? formatDoneTime(r.concluida_em) ?? "—" : "—";
       const unidade = r.unidade?.nome ?? "—";
@@ -272,7 +272,7 @@ export function ChecklistIndexClient({ data }: { data: ChecklistIndexRow[] }) {
               {r.unidade?.nome ?? "—"} · {r.setor?.nome ?? "—"}
             </p>
             <p className="text-xs text-zinc-500">
-              {new Date(r.data_auditoria + "T12:00:00").toLocaleDateString("pt-BR")}
+              {formatDateBR(r.data_auditoria)}
               {r.horario_abertura ? ` · ${formatTime24(r.horario_abertura)}` : ""} · {statusLabel[r.status]}
               {r.status === "concluida" && formatDoneTime(r.concluida_em)
                 ? ` · concluída ${formatDoneTime(r.concluida_em)}`

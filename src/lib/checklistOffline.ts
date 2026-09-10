@@ -16,11 +16,19 @@ export type RespostaPayload = {
   fotos: string[];
 };
 
+export type ConclusaoOfflineMeta = {
+  concluida_em?: string | null;
+  parecer_atraso?: string | null;
+  parecer_atraso_em?: string | null;
+  parecer_atraso_auditor_id?: string | null;
+};
+
 export type OfflineQueue = Record<
   string,
   {
     respostas: Record<string, RespostaPayload>;
     concluir?: boolean;
+    conclusaoMeta?: ConclusaoOfflineMeta;
   }
 >;
 
@@ -108,11 +116,18 @@ export function queueUpsert(auditoriaId: string, itemId: string, payload: Respos
   saveQueue(q);
 }
 
-export function queueConcluir(auditoriaId: string, respostas: Record<string, RespostaPayload>) {
+export function queueConcluir(
+  auditoriaId: string,
+  respostas: Record<string, RespostaPayload>,
+  meta?: ConclusaoOfflineMeta
+) {
   const q = loadQueue();
   if (!q[auditoriaId]) q[auditoriaId] = { respostas: {} };
   q[auditoriaId].respostas = { ...q[auditoriaId].respostas, ...respostas };
   q[auditoriaId].concluir = true;
+  if (meta) {
+    q[auditoriaId].conclusaoMeta = meta;
+  }
   saveQueue(q);
 }
 
@@ -173,7 +188,17 @@ export async function syncAuditoriaQueue(supabase: SupabaseClient, auditoriaId: 
   }
 
   if (block.concluir) {
-    await updateAuditoria(supabase, auditoriaId, { status: "concluida" });
+    const meta = block.conclusaoMeta;
+    const patch: Parameters<typeof updateAuditoria>[2] = {
+      status: "concluida",
+      concluida_em: meta?.concluida_em || new Date().toISOString(),
+    };
+    if (meta?.parecer_atraso) {
+      patch.parecer_atraso = meta.parecer_atraso;
+      patch.parecer_atraso_em = meta.parecer_atraso_em || new Date().toISOString();
+      patch.parecer_atraso_auditor_id = meta.parecer_atraso_auditor_id || null;
+    }
+    await updateAuditoria(supabase, auditoriaId, patch);
   }
 
   clearAuditoriaFromQueue(auditoriaId);

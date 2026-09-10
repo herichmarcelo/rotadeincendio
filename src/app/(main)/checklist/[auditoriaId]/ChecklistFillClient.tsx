@@ -335,7 +335,12 @@ export function ChecklistFillClient({
       }
 
       if (typeof navigator !== "undefined" && !navigator.onLine) {
-        queueConcluir(auditoriaId, respostas);
+        queueConcluir(auditoriaId, respostas, {
+          concluida_em: new Date().toISOString(),
+          parecer_atraso: overdueBy6h && parecerText.trim() ? parecerText.trim() : null,
+          parecer_atraso_em: overdueBy6h && parecerText.trim() ? new Date().toISOString() : null,
+          parecer_atraso_auditor_id: meuAuditorId ?? null,
+        });
         saveDraft(auditoriaId, state);
         setPendingLocal(true);
         toast.success("Auditoria concluída no aparelho. Envio automático quando houver internet.");

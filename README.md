@@ -41,6 +41,7 @@ O upload usa o preset **`rota_incendio_upload`** no cloud **`dmcgufpyk`**, sem A
 - `src/services/` — CRUD e regras (auditorias, dashboard, checklist, etc.).
 - `src/hooks/` — `useAuth`, `useNotificationCounts`.
 - `src/examples/crud-examples.ts` — exemplos de queries Supabase.
+- `docs/SISTEMA_HORARIOS.md` — documentação técnica do sistema de horários, SLAs (6h), conclusão offline e rotinas semanais.
 
 ## PWA
 

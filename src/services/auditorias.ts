@@ -8,8 +8,10 @@ import {
   getSessionAccess,
 } from "@/lib/sessionAccess";
 
+import { getLocalDateISO } from "@/lib/utils";
+
 export function todayISODate(): string {
-  return new Date().toISOString().slice(0, 10);
+  return getLocalDateISO();
 }
 
 /** Define status inicial conforme a data escolhida. */

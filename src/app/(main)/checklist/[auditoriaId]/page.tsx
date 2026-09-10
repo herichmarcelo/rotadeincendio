@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { formatTime24 } from "@/lib/utils";
+import { formatDateBR, formatTime24 } from "@/lib/utils";
 import { getAuditoria } from "@/services/auditorias";
 import { ChecklistFillClient } from "./ChecklistFillClient";
 
@@ -31,7 +31,7 @@ export default async function ChecklistAuditoriaPage({ params }: Props) {
         <h1 className="text-2xl font-bold text-white">Rota de Incêndio</h1>
         <p className="text-sm text-zinc-400">
           {auditoria.unidade?.nome ?? "—"} · {auditoria.setor?.nome ?? "—"} ·{" "}
-          {new Date(auditoria.data_auditoria + "T12:00:00").toLocaleDateString("pt-BR")}
+          {formatDateBR(auditoria.data_auditoria)}
           {auditoria.horario_abertura ? ` · ${formatTime24(auditoria.horario_abertura)}` : ""}
         </p>
       </div>
