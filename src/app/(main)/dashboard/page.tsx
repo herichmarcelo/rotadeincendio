@@ -1,11 +1,18 @@
 import { CheckCircle2, ClipboardList, MapPin, AlertOctagon } from "lucide-react";
+import { Suspense } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getDashboardStats, getStatusDistribution } from "@/services/dashboard";
 import { getAuditorForCurrentUser } from "@/services/auditores";
+import { getRelatorioSemana } from "@/services/relatorio";
+import { listUnidades } from "@/services/unidades";
+import { getSessionAccess } from "@/lib/sessionAccess";
 import { getLocalDateISO } from "@/lib/utils";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { DashboardCharts } from "@/components/dashboard/DashboardCharts";
 import { AlertsPanel } from "@/components/dashboard/AlertsPanel";
+import { RelatorioOperacional } from "@/components/dashboard/RelatorioOperacional";
+import { DashboardUnidadeFilter } from "@/components/dashboard/DashboardUnidadeFilter";
+import { DashboardSemanaNav } from "@/components/dashboard/DashboardSemanaNav";
 import { Card } from "@/components/ui/Card";
 
 function isMissingTablesError(e: unknown): boolean {
@@ -38,10 +45,12 @@ function SchemaSetupHint() {
             >
               SQL Editor
             </a>{" "}
-            do <strong>mesmo projeto</strong> da URL em <code className="rounded bg-zinc-900 px-1">NEXT_PUBLIC_SUPABASE_URL</code>.
+            do <strong>mesmo projeto</strong> da URL em{" "}
+            <code className="rounded bg-zinc-900 px-1">NEXT_PUBLIC_SUPABASE_URL</code>.
           </li>
           <li>
-            Cole e execute o arquivo <code className="rounded bg-zinc-900 px-1">supabase/schema.sql</code> do repositório (Run).
+            Cole e execute o arquivo{" "}
+            <code className="rounded bg-zinc-900 px-1">supabase/schema.sql</code> do repositório (Run).
           </li>
           <li>Recarregue esta página.</li>
         </ol>
@@ -50,21 +59,60 @@ function SchemaSetupHint() {
   );
 }
 
-export default async function DashboardPage() {
+/** Retorna a segunda-feira da semana de `date` no formato YYYY-MM-DD */
+function getMondayISO(date: Date): string {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return getLocalDateISO(d);
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const params = await searchParams;
+
+  const unidadeIdFilter =
+    typeof params.unidadeId === "string" ? params.unidadeId : null;
+
+  // Semana de referência: vem da URL (?semana=YYYY-MM-DD) ou usa hoje
+  const semanaParam =
+    typeof params.semana === "string" ? params.semana : null;
+  const semanaRef = semanaParam ?? getLocalDateISO();
+
+  // Segunda-feira da semana atual (para comparar e desabilitar "próxima")
+  const currentMonday = getMondayISO(new Date());
+
   let stats: Awaited<ReturnType<typeof getDashboardStats>>;
   let distribution: Awaited<ReturnType<typeof getStatusDistribution>>;
-  let rotinaAuditor: { dia?: string | null; horario?: string | null; jaRealizadaHoje?: boolean } | null = null;
+  let rotinaAuditor: {
+    dia?: string | null;
+    horario?: string | null;
+    jaRealizadaHoje?: boolean;
+  } | null = null;
+  let relatorio: Awaited<ReturnType<typeof getRelatorioSemana>> = null;
+  let unidades: Awaited<ReturnType<typeof listUnidades>> = [];
+  let isSuperAdmin = false;
 
   try {
     const supabase = await createSupabaseServerClient();
-    const [statsRes, distributionRes, auditor] = await Promise.all([
-      getDashboardStats(supabase),
-      getStatusDistribution(supabase),
-      getAuditorForCurrentUser(supabase),
-    ]);
+
+    const [statsRes, distributionRes, auditor, access, unidadesRes] =
+      await Promise.all([
+        getDashboardStats(supabase),
+        getStatusDistribution(supabase),
+        getAuditorForCurrentUser(supabase),
+        getSessionAccess(supabase),
+        listUnidades(supabase),
+      ]);
 
     stats = statsRes;
     distribution = distributionRes;
+    unidades = unidadesRes;
+    isSuperAdmin = access.isSuperAdmin;
 
     if (auditor?.dia_vistoria) {
       const hoje = getLocalDateISO();
@@ -82,12 +130,23 @@ export default async function DashboardPage() {
         jaRealizadaHoje: Boolean(auditHoje),
       };
     }
+
+    // Relatório: usa o filtro de unidade ou a primeira unidade disponível
+    const targetUnidadeId =
+      unidadeIdFilter ?? (unidades.length > 0 ? unidades[0]!.id : null);
+
+    if (targetUnidadeId) {
+      relatorio = await getRelatorioSemana(supabase, targetUnidadeId, semanaRef);
+    }
   } catch (e) {
     if (isMissingTablesError(e)) {
       return <SchemaSetupHint />;
     }
     throw e;
   }
+
+  // Verificar se a semana exibida é a atual
+  const isCurrentWeek = !semanaParam || getMondayISO(new Date(semanaRef + "T12:00:00")) === currentMonday;
 
   return (
     <div className="space-y-6">
@@ -105,11 +164,7 @@ export default async function DashboardPage() {
         />
         <StatCard title="Auditorias vencidas" value={stats.vencidas} icon={AlertOctagon} accent="warning" />
         <StatCard title="Locais avaliados" value={stats.locaisAvaliados} icon={MapPin} />
-        <StatCard
-          title="Não conformidades"
-          value={stats.naoConformidades}
-          icon={ClipboardList}
-        />
+        <StatCard title="Não conformidades" value={stats.naoConformidades} icon={ClipboardList} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-5">
@@ -120,6 +175,47 @@ export default async function DashboardPage() {
           <AlertsPanel vencidas={stats.vencidas} pendentes={stats.pendentes} rotina={rotinaAuditor} />
         </div>
       </div>
+
+      {/* ── Relatório de Status Operacional ── */}
+      {(isSuperAdmin || unidades.length > 0) && (
+        <div className="space-y-3">
+          {/* Controles: filtro de unidade + navegação de semana */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {/* Filtro de unidade */}
+            {unidades.length > 1 && (
+              <Suspense>
+                <DashboardUnidadeFilter
+                  unidades={unidades}
+                  currentUnidadeId={unidadeIdFilter ?? (unidades[0]?.id ?? null)}
+                />
+              </Suspense>
+            )}
+
+            {/* Navegação de semana */}
+            {relatorio && (
+              <Suspense>
+                <DashboardSemanaNav
+                  semanaInicio={relatorio.semanaInicio}
+                  semanaFim={relatorio.semanaFim}
+                  isCurrentWeek={isCurrentWeek}
+                />
+              </Suspense>
+            )}
+          </div>
+
+          {relatorio ? (
+            <RelatorioOperacional relatorio={relatorio} />
+          ) : (
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 py-8 text-center">
+              <p className="text-sm text-zinc-500">
+                {unidades.length === 0
+                  ? "Cadastre uma unidade para ver o relatório operacional."
+                  : "Selecione uma unidade para ver o relatório."}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
