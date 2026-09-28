@@ -69,10 +69,18 @@ Para cada setor e para o relatório consolidado, são apurados:
 
 ## 4. Interface do Dashboard
 
-### A. Navegação de Semanas (`DashboardSemanaNav.tsx`)
+### A. Filtro e Navegação de Períodos (`DashboardSemanaNav.tsx`)
 - Componente Client-side (`"use client"`).
-- Altera a rota utilizando `router.push("?semana=YYYY-MM-DD")`, preservando outros parâmetros como `unidadeId`.
-- Botões: `← Semana Anterior`, `Semana Atual` e `Próxima Semana →`.
+- **Seleção Flexível (De ... Até ...):** Permite ao usuário escolher qualquer intervalo customizado de datas (ex.: `04/09 a 09/09`) via inputs nativos de data (`<input type="date">`).
+- **Atalhos Rápidos em 1 Clique:**
+  - *Esta Semana* (Segunda a Domingo da semana atual)
+  - *Semana Anterior*
+  - *Últimos 7 dias*
+  - *Últimos 15 dias*
+  - *Este Mês Completo* (dia 1 ao último dia do mês corrente)
+- **Navegação Passo a Passo (`<` e `>`):** Permite avançar ou retroceder dinamicamente respeitando o mesmo tamanho de dias do intervalo selecionado.
+- **Roteamento e URL:** Mantém o estado via parâmetros de URL (`?dataInicio=YYYY-MM-DD&dataFim=YYYY-MM-DD` ou `?semana=YYYY-MM-DD`), preservando filtros de unidade e permitindo compartilhamento de links.
+- **Badge Indicador:** Exibe a tag `Atual` para a semana corrente ou a contagem de dias selecionados (ex.: `6d`) para períodos personalizados.
 
 ### B. Filtro de Unidades (`DashboardUnidadeFilter.tsx`)
 - Apresenta "Todas as Unidades" ou filtros específicos (ex: São Bernardo do Campo).

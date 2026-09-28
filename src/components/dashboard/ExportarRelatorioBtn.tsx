@@ -97,10 +97,10 @@ export function ExportarRelatorioBtn({ relatorio }: Props) {
       doc.setTextColor(255, 200, 200);
       doc.text(relatorio.unidadeNome.toUpperCase(), mx, 15);
 
-      // Semana + geração (direita)
+      // Período + geração (direita)
       doc.setFontSize(8);
       doc.setTextColor(255, 220, 220);
-      const rangeLabel = `Semana: ${formatDateBR(relatorio.semanaInicio)} - ${formatDateBR(relatorio.semanaFim)}`;
+      const rangeLabel = `Periodo: ${formatDateBR(relatorio.semanaInicio)} - ${formatDateBR(relatorio.semanaFim)}`;
       const geradoLabel = `Gerado em: ${new Date().toLocaleString("pt-BR")}`;
       doc.text(`${rangeLabel}   |   ${geradoLabel}`, pageW - mx, 9, { align: "right" });
 
@@ -146,7 +146,7 @@ export function ExportarRelatorioBtn({ relatorio }: Props) {
         const semFim = relatorio.semanaFim.match(/\d{4}-(\d{2})-(\d{2})/);
         const semLabel =
           semIni && semFim
-            ? `Semana: ${semIni[2]}/${semIni[1]}-${semFim[2]}/${semFim[1]}`
+            ? `Periodo: ${semIni[2]}/${semIni[1]} - ${semFim[2]}/${semFim[1]}`
             : "";
         doc.text(semLabel, cx + 4, cardTop + 12);
 
@@ -163,7 +163,7 @@ export function ExportarRelatorioBtn({ relatorio }: Props) {
           doc.setFont("helvetica", "normal");
           doc.setTextColor(160, 160, 170);
           doc.text(
-            "Sem auditorias na semana",
+            "Sem auditorias no periodo",
             cx + cardW / 2,
             rowY + (bodyH / 2) + 3,
             { align: "center" }

@@ -78,7 +78,11 @@ export default async function DashboardPage({
   const unidadeIdFilter =
     typeof params.unidadeId === "string" ? params.unidadeId : null;
 
-  // Semana de referência: vem da URL (?semana=YYYY-MM-DD) ou usa hoje
+  // Filtros de data: dataInicio + dataFim (customizado) ou semana única (legado / atalho)
+  const dataInicioParam =
+    typeof params.dataInicio === "string" ? params.dataInicio : null;
+  const dataFimParam =
+    typeof params.dataFim === "string" ? params.dataFim : null;
   const semanaParam =
     typeof params.semana === "string" ? params.semana : null;
   const semanaRef = semanaParam ?? getLocalDateISO();
@@ -136,7 +140,13 @@ export default async function DashboardPage({
       unidadeIdFilter ?? (unidades.length > 0 ? unidades[0]!.id : null);
 
     if (targetUnidadeId) {
-      relatorio = await getRelatorioSemana(supabase, targetUnidadeId, semanaRef);
+      relatorio = await getRelatorioSemana(
+        supabase,
+        targetUnidadeId,
+        semanaRef,
+        dataInicioParam ?? undefined,
+        dataFimParam ?? undefined
+      );
     }
   } catch (e) {
     if (isMissingTablesError(e)) {
@@ -145,8 +155,11 @@ export default async function DashboardPage({
     throw e;
   }
 
-  // Verificar se a semana exibida é a atual
-  const isCurrentWeek = !semanaParam || getMondayISO(new Date(semanaRef + "T12:00:00")) === currentMonday;
+  // Verificar se o período exibido é a semana atual
+  const isCustomRange = Boolean(dataInicioParam && dataFimParam);
+  const isCurrentWeek =
+    !isCustomRange &&
+    (!semanaParam || getMondayISO(new Date(semanaRef + "T12:00:00")) === currentMonday);
 
   return (
     <div className="space-y-6">
@@ -191,13 +204,14 @@ export default async function DashboardPage({
               </Suspense>
             )}
 
-            {/* Navegação de semana */}
+            {/* Navegação e filtro de período */}
             {relatorio && (
               <Suspense>
                 <DashboardSemanaNav
                   semanaInicio={relatorio.semanaInicio}
                   semanaFim={relatorio.semanaFim}
                   isCurrentWeek={isCurrentWeek}
+                  isCustomRange={relatorio.isCustomRange}
                 />
               </Suspense>
             )}

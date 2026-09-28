@@ -88,7 +88,7 @@ function TableHeader({
         <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-100 leading-tight truncate">
           {setorNome}
         </p>
-        <p className="text-[9px] text-zinc-500 mt-0.5">Semana: {semLabel}</p>
+        <p className="text-[9px] text-zinc-400 mt-0.5 font-medium">Período: {semLabel}</p>
       </div>
       {/* Rótulos de coluna */}
       <div className="flex items-center gap-6 text-[9px] font-semibold uppercase tracking-wider text-zinc-500 shrink-0">
@@ -125,7 +125,7 @@ function SetorCard({
       <div className="flex-1 divide-y divide-zinc-800/60">
         {visitas.length === 0 ? (
           <div className="flex items-center justify-center py-7">
-            <p className="text-xs italic text-zinc-600">Nenhuma auditoria nesta semana</p>
+            <p className="text-xs italic text-zinc-600">Nenhuma auditoria neste período</p>
           </div>
         ) : (
           visitas.map((v, i) => {

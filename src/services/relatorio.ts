@@ -22,8 +22,9 @@ export interface SetorRelatorio {
 export interface RelatorioSemana {
   unidadeId: string;
   unidadeNome: string;
-  semanaInicio: string; // YYYY-MM-DD (segunda)
-  semanaFim: string;   // YYYY-MM-DD (domingo)
+  semanaInicio: string; // YYYY-MM-DD
+  semanaFim: string;   // YYYY-MM-DD
+  isCustomRange?: boolean;
   setores: SetorRelatorio[];
 }
 
@@ -42,28 +43,53 @@ function toISO(d: Date): string {
 }
 
 /**
- * Busca o relatório de status operacional da semana para uma unidade.
+ * Busca o relatório de status operacional para uma unidade em um período.
+ * Pode receber um intervalo flexível (dataInicio e dataFim) ou uma semanaRef.
  *
- * @param supabase  cliente autenticado
- * @param unidadeId UUID da unidade (obrigatório — o super_admin escolhe via filtro)
- * @param semanaRef data de referência da semana (padrão: hoje)
+ * @param supabase        cliente autenticado
+ * @param unidadeId       UUID da unidade
+ * @param semanaRef       data de referência da semana (opcional)
+ * @param dataInicioParam data inicial customizada YYYY-MM-DD (opcional)
+ * @param dataFimParam    data final customizada YYYY-MM-DD (opcional)
  */
 export async function getRelatorioSemana(
   supabase: SupabaseClient,
   unidadeId: string,
-  semanaRef?: string
+  semanaRef?: string,
+  dataInicioParam?: string,
+  dataFimParam?: string
 ): Promise<RelatorioSemana | null> {
   const access = await getSessionAccess(supabase);
   if (!access.isSuperAdmin && !access.auditorId) return null;
 
-  // Calcular range da semana (segunda → domingo)
-  const ref = semanaRef ? new Date(semanaRef + "T12:00:00") : new Date();
-  const monday = getMondayOf(ref);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
+  let semanaInicio: string;
+  let semanaFim: string;
+  let isCustomRange = false;
 
-  const semanaInicio = toISO(monday);
-  const semanaFim = toISO(sunday);
+  if (dataInicioParam && dataFimParam) {
+    // Range customizado (ex: 04/09 a 09/09)
+    isCustomRange = true;
+    if (dataInicioParam <= dataFimParam) {
+      semanaInicio = dataInicioParam;
+      semanaFim = dataFimParam;
+    } else {
+      semanaInicio = dataFimParam;
+      semanaFim = dataInicioParam;
+    }
+  } else if (dataInicioParam) {
+    isCustomRange = true;
+    semanaInicio = dataInicioParam;
+    semanaFim = dataInicioParam;
+  } else {
+    // Calcular range padrão da semana (segunda → domingo)
+    const ref = semanaRef ? new Date(semanaRef + "T12:00:00") : new Date();
+    const monday = getMondayOf(ref);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    semanaInicio = toISO(monday);
+    semanaFim = toISO(sunday);
+  }
 
   // Buscar nome da unidade
   const { data: unidade, error: uErr } = await supabase
@@ -130,6 +156,7 @@ export async function getRelatorioSemana(
     unidadeNome: unidade.nome as string,
     semanaInicio,
     semanaFim,
+    isCustomRange,
     setores: setoresResult,
   };
 }
